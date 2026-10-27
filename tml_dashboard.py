@@ -38,7 +38,12 @@ COLLECTIONS = [
     {"symbol": "tomorrowland_love_unity", "key": "symbol-of-love-and-unity",
      "name": "The Symbol of Love and Unity", "short": "Symbol"},
 ]
-MEDALLIONS_WANTED = int(os.environ.get("MEDALLIONS_WANTED", "2"))  # je Kollektion so viele NFTs kaufen
+MEDALLIONS_WANTED = int(os.environ.get("MEDALLIONS_WANTED") or 2)  # je Kollektion so viele NFTs kaufen
+ALERT_PCT = float(os.environ.get("ALERT_PCT") or 5)  # Alarm ab so viel % unter dem 7-Tage-Median
+# Termine wie im Vorjahr (Registrierung 1.–30.11.2025, Snapshot 1.12.2025), bis 2027 offiziell bestätigt ist
+SNAPSHOT = dt.date.fromisoformat(os.environ.get("EXPECTED_SNAPSHOT") or "2026-12-01")
+REG_START = dt.date.fromisoformat(os.environ.get("EXPECTED_REGISTRATION_START") or "2026-11-01")
+REG_END = dt.date.fromisoformat(os.environ.get("EXPECTED_REGISTRATION_END") or "2026-11-30")
 
 # Wie lange zwischengespeicherte Daten gelten, wenn ein Cache übergeben wird (Sekunden)
 MAX_AGE = {"history": 3600, "sol": 3600, "sales": 1800}
@@ -147,6 +152,91 @@ def seasons(med_eur, today):
     return out
 
 
+def de(v, d=0):
+    """Zahl im deutschen Format."""
+    s = f"{v:,.{d}f}"
+    return s.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def pct(v):
+    return "–" if v is None else ("+" if v >= 0.5 else "−" if v <= -0.5 else "±") + de(abs(v), 0) + " %"
+
+
+def row_on(history, day, idx):
+    """Wert der Tageshistorie am Tag `day` oder am letzten Tag davor."""
+    rows = [r for r in history if r[0] <= day and r[idx] is not None]
+    return rows[-1][idx] if rows else None
+
+
+def median_7d(history, today, idx):
+    lo = (today - dt.timedelta(days=7)).isoformat()
+    vals = [r[idx] for r in history if lo <= r[0] < today.isoformat() and r[idx] is not None]
+    return statistics.median(vals) if vals else None
+
+
+def change(now, old):
+    return (now / old - 1) * 100 if old else None
+
+
+def status(cols, history, season_list, rate, wanted, today):
+    """Die Lage auf einen Blick – dieselben Aussagen für Dashboard und Benachrichtigungen."""
+    y1 = (today - dt.timedelta(days=1)).isoformat()
+    y7 = (today - dt.timedelta(days=7)).isoformat()
+    items = []
+    for i, c in enumerate(cols):
+        base = median_7d(history, today, i + 1)
+        buy = c["ladder"][:wanted]
+        items.append({
+            "short": c["short"], "floor": c["floor"], "base7": base,
+            "vs7": change(c["floor"], base), "ch7": change(c["floor"], row_on(history, y7, i + 1)),
+            "threshold": base * (1 - ALERT_PCT / 100) if base else None,
+            "buy": buy, "buySol": sum(buy), "listed": c["listed"], "scarce": c["listed"] < 30,
+        })
+    med_sol = sum(c["floor"] for c in cols)
+    med_eur = med_sol * rate
+    med_base = median_7d(history, today, 5)
+    cost_sol = sum(it["buySol"] for it in items)
+    ch1 = change(med_eur, row_on(history, y1, 5))
+    ch7 = change(med_eur, row_on(history, y7, 5))
+    vs7 = change(med_eur, med_base)
+    trend = "steigend" if (ch7 or 0) >= 5 else "fallend" if (ch7 or 0) <= -5 else "stabil"
+
+    past = [s["stats"] for s in season_list if s["stats"]]
+    run_ups = [(p["peak"] / p["base"] - 1) * 100 for p in past]
+    drops = [(p["trough"] / p["peak"] - 1) * 100 for p in past]
+    days_snap = (SNAPSHOT - today).days
+    days_reg = (REG_END - today).days
+
+    cheap = [it for it in items if it["vs7"] is not None and it["vs7"] <= -ALERT_PCT]
+    if days_snap < 0:
+        level, head = "neutral", "Snapshot vorbei"
+        text = "Der vermutete Snapshot-Termin ist vorbei. Trage den nächsten Termin in den Einstellungen ein."
+    elif cheap:
+        level, head = "good", "Günstiger Moment"
+        text = ", ".join(f"{it['short']} {pct(it['vs7'])}" for it in cheap) + " unter dem 7-Tage-Schnitt."
+    elif trend == "steigend":
+        level, head = "warn", "Preise steigen"
+        text = (f"Medaillon {pct(ch7)} in 7 Tagen. In den Vorjahren stieg der Preis bis zum Snapshot weiter "
+                f"({pct(min(run_ups))} bis {pct(max(run_ups))}).") if run_ups else f"Medaillon {pct(ch7)} in 7 Tagen."
+    elif trend == "fallend":
+        level, head = "good", "Preise fallen"
+        text = f"Medaillon {pct(ch7)} in 7 Tagen."
+    else:
+        level, head = "neutral", "Preise stabil"
+        text = f"Medaillon {pct(ch7)} in 7 Tagen, kaum Bewegung."
+
+    return {
+        "level": level, "headline": head, "text": text, "trend": trend,
+        "medSol": med_sol, "medEur": med_eur, "medBase7": med_base,
+        "medThreshold": med_base * (1 - ALERT_PCT / 100) if med_base else None,
+        "costSol": cost_sol, "costEur": cost_sol * rate,
+        "ch1": ch1, "ch7": ch7, "vs7": vs7, "items": items,
+        "alertPct": ALERT_PCT, "runUps": run_ups, "drops": drops,
+        "snapshot": SNAPSHOT.isoformat(), "regStart": REG_START.isoformat(), "regEnd": REG_END.isoformat(),
+        "daysSnap": days_snap, "daysReg": days_reg, "urgent": 0 <= days_reg <= 7,
+    }
+
+
 def collect(cache=None):
     """Lädt alle Daten. `cache` (dict) wird gelesen und aktualisiert, damit häufige Läufe
     Historie, SOL-Kurs und Verkäufe nur stündlich bzw. halbstündlich neu laden."""
@@ -190,7 +280,8 @@ def collect(cache=None):
     med_eur = {r[0]: r[5] for r in history if r[5]}
     eur_rate = sol_price.get("eur") or sol["eur"][-1][1]
     usd_rate = sol_price.get("usd") or sol["usd"][-1][1]
-    cost_sol = sum(sum(c["ladder"][:MEDALLIONS_WANTED]) for c in cols)
+    season_list = seasons(med_eur, today)
+    st = status(cols, history, season_list, eur_rate, MEDALLIONS_WANTED, today)
 
     return {
         "generated": now.isoformat(timespec="minutes"),
@@ -200,9 +291,11 @@ def collect(cache=None):
                 "eurSeries": [[int(t), round(p, 2)] for t, p in sol["eur"]],
                 "usdSeries": [[int(t), round(p, 2)] for t, p in sol["usd"]]},
         "collections": cols,
-        "costSol": round(cost_sol, 2),
+        "costSol": round(st["costSol"], 2),
         "history": history,  # Datum, Letter, Reflection, Symbol, Medallion (SOL), Medallion (EUR)
-        "seasons": seasons(med_eur, today),
+        "seasons": season_list,
+        "status": st,
+        "pagesUrl": os.environ.get("PAGES_URL", ""),
     }
 
 

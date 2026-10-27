@@ -21,6 +21,8 @@ Unter *Settings → Secrets and variables → Actions*:
 | `ALERT_PCT` | Variable | Alarm ab so viel % unter dem 7-Tage-Median | 5 |
 | `DAILY_HOUR` | Variable | Stunde der Tageszusammenfassung (Berlin) | 20 |
 | `EXPECTED_SNAPSHOT` | Variable | vermuteter Snapshot-Termin | 2026-12-01 |
+| `EXPECTED_REGISTRATION_START` | Variable | Beginn der Matrica-Registrierung | 2026-11-01 |
+| `EXPECTED_REGISTRATION_END` | Variable | Registrierungsschluss | 2026-11-30 |
 | `MEDALLIONS_WANTED` | Variable | so viele Medaillons sollen gekauft werden | 2 |
 
 Testnachricht: *Actions → Medaillon-Wächter → Run workflow* mit Haken bei „Testnachricht“.
