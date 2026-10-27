@@ -207,6 +207,26 @@ def status(cols, history, season_list, rate, wanted, today):
     days_snap = (SNAPSHOT - today).days
     days_reg = (REG_END - today).days
 
+    # Die letzten 7 Tage (Tagesstände) plus heute live
+    by_day = {r[0]: r for r in history}
+    week = []
+    for k in range(7, 0, -1):
+        d = (today - dt.timedelta(days=k)).isoformat()
+        if d in by_day and by_day[d][5]:
+            r = by_day[d]
+            week.append({"date": d, "floors": r[1:4], "medSol": r[4], "medEur": r[5], "live": False})
+    week.append({"date": today.isoformat(), "floors": [c["floor"] for c in cols],
+                 "medSol": med_sol, "medEur": med_eur, "live": True})
+    lo = min(week, key=lambda w: w["medEur"])
+    hi = max(week, key=lambda w: w["medEur"])
+    if hi["live"]:
+        rank = "heute teuerster Tag der Woche"
+    elif lo["live"]:
+        rank = "heute günstigster Tag der Woche"
+    else:
+        rank = f"heute {de(abs(change(med_eur, hi['medEur'])))} % unter dem Wochenhoch"
+    mover = max(items, key=lambda it: abs(it["ch7"] or 0))
+
     cheap = [it for it in items if it["vs7"] is not None and it["vs7"] <= -ALERT_PCT]
     if days_snap < 0:
         level, head = "neutral", "Snapshot vorbei"
@@ -234,6 +254,9 @@ def status(cols, history, season_list, rate, wanted, today):
         "alertPct": ALERT_PCT, "runUps": run_ups, "drops": drops,
         "snapshot": SNAPSHOT.isoformat(), "regStart": REG_START.isoformat(), "regEnd": REG_END.isoformat(),
         "daysSnap": days_snap, "daysReg": days_reg, "urgent": 0 <= days_reg <= 7,
+        "week": {"days": week, "low": {"date": lo["date"], "eur": lo["medEur"]},
+                 "high": {"date": hi["date"], "eur": hi["medEur"]}, "rank": rank,
+                 "mover": {"short": mover["short"], "ch7": mover["ch7"]}},
     }
 
 

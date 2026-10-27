@@ -116,6 +116,19 @@ section { display: flex; flex-direction: column; gap: 14px; }
 .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 8px 12px; }
 .head > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 
+/* Die letzten 7 Tage */
+.sparks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 860px) { .sparks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.spark { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 14px 10px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.spark .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.spark h3 { display: flex; align-items: center; gap: 7px; font-size: 13.5px; }
+.spark .v { font: 600 18px var(--f-data); font-variant-numeric: tabular-nums; }
+.spark svg { width: 100%; height: 56px; display: block; overflow: visible; }
+.spark .range { font: 11.5px var(--f-data); color: var(--muted); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 10px; }
+#weekTable td.today { font-weight: 600; }
+.d-bad { color: var(--crit-ink); }
+.d-good { color: var(--good-ink); }
+
 /* Einkaufsliste */
 .shop { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
 .item { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 10px 18px; align-items: center; padding: 16px 18px; }
@@ -219,6 +232,20 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
       <p id="sigText"></p>
     </div>
   </div>
+
+  <section>
+    <div class="head">
+      <div>
+        <h2>Die letzten 7 Tage</h2>
+        <p class="sub" id="weekSummary"></p>
+      </div>
+    </div>
+    <div class="sparks" id="sparks"></div>
+    <details id="weekDetails">
+      <summary>Tag für Tag</summary>
+      <div class="inner"><div class="table-wrap"><table id="weekTable"></table></div></div>
+    </details>
+  </section>
 
   <section>
     <div class="head">
@@ -404,6 +431,56 @@ function renderHero() {
   document.getElementById("sigText").textContent = ST.urgent && open > 0
     ? `Noch ${ST.daysReg} Tage bis Registrierungsschluss und ${open} NFTs offen. ${ST.text}`
     : ST.text;
+}
+
+/* ---------- Die letzten 7 Tage ---------- */
+function sparkSvg(vals, dates, color, fmt) {
+  const W2 = 200, H = 56, pad = 5;
+  const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
+  const x = i => vals.length === 1 ? W2 : (i / (vals.length - 1)) * W2;
+  const y = v => pad + (1 - (v - lo) / span) * (H - 2 * pad);
+  const pts = vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const last = vals.length - 1;
+  const hits = vals.map((v, i) => {
+    const w = W2 / vals.length;
+    return `<rect x="${Math.max(0, x(i) - w / 2)}" y="0" width="${w}" height="${H}" fill="transparent"><title>${dates[i]}: ${fmt(v)}</title></rect>`;
+  }).join("");
+  return `<svg viewBox="0 0 ${W2} ${H}" preserveAspectRatio="none" role="img" aria-label="Verlauf 7 Tage">
+    <polygon points="0,${H} ${pts} ${W2},${H}" style="fill:${color};opacity:.10"></polygon>
+    <polyline points="${pts}" fill="none" style="stroke:${color}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+    <line x1="${x(last)}" y1="${y(vals[last])}" x2="${x(last)}" y2="${y(vals[last])}" style="stroke:${color}" stroke-width="8" stroke-linecap="round" vector-effect="non-scaling-stroke"></line>
+    ${hits}</svg>`;
+}
+function renderWeek() {
+  const wk = ST.week, days = wk.days;
+  const first = days[0], last = days[days.length - 1];
+  const dayLabel = d => d.live ? "heute" : fmtDay(d.date);
+  document.getElementById("weekSummary").textContent =
+    `Medaillon ${pct(ST.ch7)} in 7 Tagen (${eur(first.medEur)} → ${eur(last.medEur)}). Spanne ${eur(wk.low.eur)} – ${eur(wk.high.eur)}, ${wk.rank}. Stärkste Bewegung: ${wk.mover.short} ${pct(wk.mover.ch7)}.`;
+  const series = [{ name: "Medaillon", color: "var(--gold)", vals: days.map(d => d.medEur), fmt: v => eur(v), sw: "--gold" }]
+    .concat(cols.map((c, i) => ({ name: c.short, color: `var(${SERIES[i]})`, vals: days.map(d => d.floors[i]), fmt: v => de(v, 2) + " SOL", sw: SERIES[i] })));
+  document.getElementById("sparks").innerHTML = series.map(s => {
+    const ok = s.vals.map((v, i) => [v, i]).filter(([v]) => v != null);
+    const vals = ok.map(([v]) => v), dates = ok.map(([, i]) => dayLabel(days[i]));
+    const ch = (vals[vals.length - 1] / vals[0] - 1) * 100;
+    return `<div class="spark">
+      <div class="top"><h3><span class="sw" style="background:var(${s.sw})"></span>${s.name}</h3><span class="chip ${moveClass(ch)}">${arrow(ch)}${pct(ch)}</span></div>
+      <span class="v">${s.fmt(vals[vals.length - 1])}</span>
+      ${sparkSvg(vals, dates, s.color, s.fmt)}
+      <div class="range"><span>Tief ${s.fmt(Math.min(...vals))}</span><span>Hoch ${s.fmt(Math.max(...vals))}</span></div>
+    </div>`;
+  }).join("");
+  const rows = days.map((d, i) => {
+    const prev = i > 0 ? days[i - 1].medEur : null;
+    const dd = prev ? (d.medEur / prev - 1) * 100 : null;
+    const cls = dd == null ? "" : dd >= 0.5 ? "d-bad" : dd <= -0.5 ? "d-good" : "";
+    const short = day(d.date).toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" });
+    return `<tr><td class="${d.live ? "today" : ""}">${d.live ? "Heute" : short}</td>
+      <td class="r num">${eur(d.medEur)}</td><td class="r num ${cls}">${pct(dd)}</td>
+      ${d.floors.map(f => `<td class="r num">${f == null ? "–" : de(f, 2)}</td>`).join("")}</tr>`;
+  }).reverse().join("");
+  document.getElementById("weekTable").innerHTML =
+    `<thead><tr><th>Tag</th><th class="r">Medaillon</th><th class="r">± Vortag</th>${cols.map(c => `<th class="r">${c.short} (SOL)</th>`).join("")}</tr></thead><tbody>${rows}</tbody>`;
 }
 
 /* ---------- Einkaufsliste ---------- */
@@ -717,6 +794,7 @@ document.getElementById("settings").textContent =
 document.getElementById("foot").textContent = `Datenstand ${gen.toLocaleString("de-DE")}.`;
 
 renderHero();
+renderWeek();
 renderShop();
 renderPlan();
 renderSeasonTable();

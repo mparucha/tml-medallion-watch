@@ -97,9 +97,11 @@ def daily_summary(data, today):
     title = f"{data['wanted']} Medaillons: {de(st['costEur'])} € · {st['headline']}"
     if st["urgent"]:
         title = "⚠ " + title
+    wk = st["week"]
     lines = [
         f"7 T {pct(st['ch7'])} · 24 h {pct(st['ch1'])} · {deadline(st)}",
-        " · ".join(f"{it['short']} {de(it['floor'], 2)}" for it in items) + " SOL",
+        f"Woche: {de(wk['low']['eur'])}–{de(wk['high']['eur'])} €, {wk['rank']}",
+        " · ".join(f"{it['short']} {de(it['floor'], 2)} ({pct(it['ch7'])})" for it in items),
         "Alarm unter " + " / ".join(de(it["threshold"], 2) for it in items if it["threshold"]) + " SOL",
         st["text"],
     ]
