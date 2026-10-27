@@ -1,0 +1,577 @@
+<meta charset="utf-8">
+<title>Medallion of Memoria</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column; summary strip → verdict → season chart → history → three collection panels → SOL → sources. */
+:root {
+  --bg: #f1f0f7;
+  --surface: #fbfaff;
+  --ink: #17152b;
+  --ink-2: #4b4864;
+  --muted: #7d7a95;
+  --line: #dddaea;
+  --axis: #c4c0d6;
+  --gold: #8a5f0c;
+  --gold-wash: rgba(176, 128, 30, 0.10);
+  --band: rgba(98, 80, 214, 0.07);
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
+  --warn: #fab219; --good: #0ca30c; --crit: #d03b3b;
+  --warn-ink: #7a5200;
+  --f-display: "Cinzel", "Trajan Pro", Georgia, serif;
+  --f-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f0e1f; --surface: #1b1932; --ink: #efedf8; --ink-2: #c0bcd6; --muted: #8e8aa8;
+    --line: #2e2b4a; --axis: #3d3a5c; --gold: #dcb75e; --gold-wash: rgba(220, 183, 94, 0.10);
+    --band: rgba(144, 133, 233, 0.10);
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --warn-ink: #fab219;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f0e1f; --surface: #1b1932; --ink: #efedf8; --ink-2: #c0bcd6; --muted: #8e8aa8;
+  --line: #2e2b4a; --axis: #3d3a5c; --gold: #dcb75e; --gold-wash: rgba(220, 183, 94, 0.10);
+  --band: rgba(144, 133, 233, 0.10);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --warn-ink: #fab219;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+h1, h2 { font-family: var(--f-display); font-weight: 600; text-wrap: balance; margin: 0; letter-spacing: 0.02em; }
+h1 { font-size: clamp(30px, 6vw, 46px); line-height: 1.1; }
+h2 { font-size: 21px; line-height: 1.25; }
+h3 { font-size: 15px; margin: 0; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+a { color: var(--gold); text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.eyebrow { font-family: var(--f-data); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); }
+.muted { color: var(--muted); }
+.sub { color: var(--ink-2); }
+.num { font-family: var(--f-data); font-variant-numeric: tabular-nums; }
+header { display: flex; flex-direction: column; gap: 10px; }
+header .stand { font-family: var(--f-data); font-size: 12px; color: var(--muted); }
+
+/* summary strip */
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.kpi { padding: 18px 20px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.kpi + .kpi { border-left: 1px solid var(--line); }
+.kpi .label { font-size: 12px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; font-family: var(--f-data); }
+.kpi .big { font-size: 26px; font-weight: 600; line-height: 1.2; }
+.kpi .small { font-size: 13px; color: var(--ink-2); }
+.kpi.focus .big { color: var(--gold); }
+@media (max-width: 860px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi:nth-child(3) { border-left: 0; }
+  .kpi:nth-child(n+3) { border-top: 1px solid var(--line); }
+}
+@media (max-width: 460px) {
+  .kpis { grid-template-columns: 1fr; }
+  .kpi + .kpi { border-left: 0; border-top: 1px solid var(--line); }
+}
+
+/* verdict */
+.verdict { display: flex; flex-direction: column; gap: 18px; padding: 22px; border-radius: 10px; background: var(--gold-wash); border: 1px solid var(--line); }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-data); font-size: 12px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--warn); color: var(--warn-ink); width: fit-content; }
+.pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); }
+.scen { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.scen > div { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.scen .tag { font-family: var(--f-data); font-size: 12px; color: var(--muted); }
+@media (max-width: 720px) { .scen { grid-template-columns: 1fr; } }
+.fine { font-size: 13px; color: var(--muted); }
+
+/* sections */
+section { display: flex; flex-direction: column; gap: 14px; }
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 12px; }
+.head > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.chart { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 14px 8px; position: relative; }
+.chart .box { position: relative; height: 340px; }
+.chart .box.short { height: 220px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--ink-2); padding: 2px 4px 10px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { font: 500 13px var(--f-data); color: var(--ink-2); background: transparent; border: 0; padding: 6px 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.controls { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font: 500 12px var(--f-data); color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+td.r, th.r { text-align: right; }
+.down { color: var(--crit); }
+.up { color: var(--good); }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 8px; vertical-align: 0; }
+
+/* collections */
+.cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+.col { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.col .top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.col .floor { font-size: 24px; font-weight: 600; }
+.ladder { display: flex; flex-wrap: wrap; gap: 6px; }
+.ladder span { font: 12px var(--f-data); padding: 2px 7px; border-radius: 5px; border: 1px solid var(--line); color: var(--ink-2); }
+.ladder span.mine { border-color: var(--gold); color: var(--gold); font-weight: 500; }
+.col .box { position: relative; height: 170px; }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-size: 13px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; text-align: right; }
+
+.two { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: start; }
+@media (max-width: 820px) { .two { grid-template-columns: 1fr; } }
+ul.notes { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+code { font-family: var(--f-data); font-size: 12.5px; background: var(--bg); border: 1px solid var(--line); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+pre { margin: 0; font-family: var(--f-data); font-size: 13px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; display: flex; flex-direction: column; gap: 6px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Tomorrowland NFT · Kauf-Timing</span>
+    <h1>Medallion of Memoria</h1>
+    <p class="sub" id="intro"></p>
+    <span class="stand" id="stand"></span>
+  </header>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="verdict">
+    <span class="pill" id="phase">Vor-Snapshot-Phase</span>
+    <h2>Wo wir im Jahreszyklus stehen</h2>
+    <p id="cycle"></p>
+    <div class="scen">
+      <div>
+        <span class="tag">Fall A</span>
+        <h3>Du brauchst sie für den Presale 2027</h3>
+        <p id="scenA"></p>
+      </div>
+      <div>
+        <span class="tag">Fall B</span>
+        <h3>Der nächste Presale reicht dir nicht als Ziel</h3>
+        <p id="scenB"></p>
+      </div>
+    </div>
+    <p class="fine">Keine Anlageberatung. Drei Saisons sind ein Muster, keine Garantie. Termine 2027 sind noch nicht offiziell bestätigt; prüfe Matrica und die offiziellen Tomorrowland-Kanäle.</p>
+  </div>
+
+  <section>
+    <div class="head">
+      <div>
+        <h2>Saisonmuster rund um den Presale</h2>
+        <p class="sub">Medallion-Floor in Euro, 7-Tage-Median, indexiert auf den heutigen Kalendertag (= 100). Hinterlegt: Matrica-Registrierung im November 2025, Linie: Snapshot am 1. Dezember 2025.</p>
+      </div>
+    </div>
+    <div class="chart">
+      <div class="legend" id="seasonLegend"></div>
+      <div class="box"><canvas id="seasonChart" aria-label="Saisonvergleich des Medallion-Preises"></canvas></div>
+    </div>
+    <div class="table-wrap">
+      <table id="seasonTable"></table>
+    </div>
+  </section>
+
+  <section>
+    <div class="head">
+      <div>
+        <h2>Medallion-Floor seit 2022</h2>
+        <p class="sub">Summe der drei günstigsten Einzelteile pro Tag. Hinterlegt: Registrierung und Presale (November bis Mitte Dezember).</p>
+      </div>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Währung">
+          <button type="button" id="curEur" aria-pressed="true">€</button>
+          <button type="button" id="curSol" aria-pressed="false">SOL</button>
+        </div>
+        <div class="seg" role="group" aria-label="Zeitraum">
+          <button type="button" id="rng1" aria-pressed="false">1 J</button>
+          <button type="button" id="rngAll" aria-pressed="true">Alles</button>
+        </div>
+      </div>
+    </div>
+    <div class="chart">
+      <div class="box"><canvas id="histChart" aria-label="Historie des Medallion-Floors"></canvas></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head">
+      <div>
+        <h2>Die drei Teile im Detail</h2>
+        <p class="sub">Punkte: Verkäufe der letzten ~90 Tage auf Magic Eden. Gestrichelt: aktueller Floor. Goldene Preise: die zwei günstigsten Listings, die du heute kaufen würdest.</p>
+      </div>
+    </div>
+    <div class="cols" id="cols"></div>
+  </section>
+
+  <section>
+    <div class="head">
+      <div>
+        <h2>Solana</h2>
+        <p class="sub">SOL-Kurs in Euro, letzte 365 Tage.</p>
+      </div>
+    </div>
+    <div class="two">
+      <div class="chart"><div class="box short"><canvas id="solChart" aria-label="SOL-Kurs in Euro"></canvas></div></div>
+      <ul class="notes" id="solNotes"></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="head">
+      <div>
+        <h2>Daten kostenlos selbst holen</h2>
+        <p class="sub">Alles auf dieser Seite kommt aus freien Quellen ohne API-Key. Mit dem Skript aktualisierst du sie jederzeit.</p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Quelle</th><th>Liefert</th><th>Kosten</th><th>Endpunkt</th></tr></thead>
+        <tbody>
+          <tr><td><a href="https://docs.magiceden.io/" target="_blank" rel="noopener">Magic Eden API</a></td><td>Floor, Listings, Verkäufe (~90 Tage), Gebote</td><td>gratis, kein Key, ca. 2 Anfragen/s</td><td><code>api-mainnet.magiceden.dev/v2/collections/{symbol}/stats</code></td></tr>
+          <tr><td><a href="https://tmlunite.com/en/tracker" target="_blank" rel="noopener">tmlunite.com</a></td><td>Tägliche Floor-Historie seit 2022 in SOL, €, $</td><td>gratis, Fan-Seite (inoffiziell)</td><td><code>tmlunite.com/api/nft/history?range=all&amp;currency=eur</code></td></tr>
+          <tr><td><a href="https://kaemm.com/nft/" target="_blank" rel="noopener">kaemm.com/nft</a></td><td>Fertiges Floor-Dashboard, gleiche Magic-Eden-Daten</td><td>gratis</td><td><code>api.kaemm.net/nft/</code></td></tr>
+          <tr><td><a href="https://www.coingecko.com/en/api" target="_blank" rel="noopener">CoinGecko</a></td><td>SOL-Kurs (365 Tage); NFT-Charts nur im Pro-Plan</td><td>gratis für SOL</td><td><code>api.coingecko.com/api/v3/coins/solana/market_chart</code></td></tr>
+          <tr><td><a href="https://dune.com" target="_blank" rel="noopener">Dune</a></td><td>SQL über On-Chain-NFT-Verkäufe, Charts im Browser</td><td>gratis-Account</td><td><code>dune.com</code></td></tr>
+          <tr><td>Google Sheets</td><td>CSV aus dem Skript importieren, eigene Diagramme</td><td>gratis</td><td><code>medallion_history.csv</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="sub">Magic-Eden-Symbole: <code>tomorrowland_winter</code> (A Letter from the Universe), <code>the_reflection_of_love</code>, <code>tomorrowland_love_unity</code> (The Symbol of Love and Unity). Aktualisieren:</p>
+    <pre>python3 tml_dashboard.py</pre>
+  </section>
+
+  <footer>
+    <span>Keine Finanz- oder Anlageberatung. Floor = günstigstes Listing; tatsächliche Kaufpreise liegen durch Marktplatzgebühren und Royalties etwas höher.</span>
+    <span id="foot"></span>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const DATA = /*__DATA__*/null;
+
+const de = (v, d = 0) => v == null ? "–" : v.toLocaleString("de-DE", { minimumFractionDigits: d, maximumFractionDigits: d });
+const eur = (v, d = 0) => de(v, d) + " €";
+const pct = v => (v > 0 ? "+" : v < 0 ? "−" : "±") + de(Math.abs(v), 0) + " %";
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmtDate = s => new Date(s + "T12:00:00").toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" });
+const fmtDay = s => new Date(s + "T12:00:00").toLocaleDateString("de-DE", { day: "numeric", month: "short" });
+const SERIES = ["--s1", "--s2", "--s3"];
+
+const cols = DATA.collections;
+const medFloor = cols.reduce((a, c) => a + c.floor, 0);
+const rate = DATA.sol.eur;
+const hist = DATA.history.map(r => ({ d: r[0], t: Date.parse(r[0] + "T12:00:00Z"), L: r[1], R: r[2], S: r[3], sol: r[4], eur: r[5] }));
+const past = DATA.seasons.filter(s => s.stats);
+const cur = DATA.seasons.find(s => s.current);
+
+function histAt(key, daysAgo) {
+  const target = Date.parse(DATA.today + "T12:00:00Z") - daysAgo * 864e5;
+  const rows = hist.filter(r => r.t <= target && r[key] != null);
+  return rows.length ? rows[rows.length - 1][key] : null;
+}
+function solChange(days) {
+  const s = DATA.sol.eurSeries, last = s[s.length - 1];
+  const prev = s.filter(p => p[0] <= last[0] - days * 864e5).pop() || s[0];
+  return (last[1] / prev[1] - 1) * 100;
+}
+
+/* ---------- text ---------- */
+document.getElementById("intro").textContent =
+  `Ein Medaillon ist kein eigenes NFT: Es zählt, wenn die Wallet je ein NFT aus allen drei Kollektionen hält. Für ${DATA.wanted} weitere Medaillons kaufst du also je ${DATA.wanted}× Letter, Reflection und Symbol.`;
+const gen = new Date(DATA.generated);
+document.getElementById("stand").textContent =
+  `Stand ${gen.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" })} · 1 SOL = ${eur(rate, 2)} · Quellen: Magic Eden, tmlunite.com, CoinGecko`;
+
+const costEur = DATA.costSol * rate;
+const sol30 = solChange(30), sol365 = solChange(365);
+document.getElementById("kpis").innerHTML = `
+  <div class="kpi"><span class="label">Medallion-Floor</span><span class="big num">${de(medFloor, 1)} SOL</span><span class="small">≈ ${eur(medFloor * rate)} · $${de(medFloor * DATA.sol.usd)}</span></div>
+  <div class="kpi focus"><span class="label">${DATA.wanted} weitere Medaillons</span><span class="big num">${de(DATA.costSol, 1)} SOL</span><span class="small">≈ ${eur(costEur)} · je ${DATA.wanted} günstigste Listings, zzgl. Gebühren</span></div>
+  <div class="kpi"><span class="label">SOL-Kurs</span><span class="big num">${eur(rate, 2)}</span><span class="small">30 Tage ${pct(sol30)} · 1 Jahr ${pct(sol365)}</span></div>
+  <div class="kpi"><span class="label">Gelistet auf Magic Eden</span><span class="big num">${cols.map(c => c.listed).join(" / ")}</span><span class="small">${cols.map(c => c.short).join(" / ")}</span></div>`;
+
+const runUps = past.map(s => (s.stats.peak / s.stats.base - 1) * 100);
+const drops = past.map(s => (s.stats.trough / s.stats.peak - 1) * 100);
+const vsToday = past.map(s => (s.stats.trough / s.stats.base - 1) * 100);
+const r7 = cols.map(c => { const a = histAt(c.key === "letter-from-the-universe" ? "L" : c.key === "the-reflection-of-love" ? "R" : "S", 7); return a ? (c.floor / a - 1) * 100 : 0; });
+const hot = cols.map((c, i) => `${c.short} ${pct(r7[i])}`).join(", ");
+const med7 = histAt("sol", 7);
+
+document.getElementById("cycle").textContent =
+  `Im letzten Jahr lief die Matrica-Registrierung für Medallion-Holder vom 1. bis 30. November 2025, der Snapshot war am 1. Dezember 2025, der Presale am 5. und 8. Dezember. Pro Medaillon gab es maximal 2 Tickets. Wiederholt sich der Ablauf, musst du alle NFTs vor dem Snapshot in der Wallet haben und dich bis Ende November registrieren. Der Floor zieht gerade an: in 7 Tagen ${hot}; das Medaillon kostet ${pct((medFloor / med7 - 1) * 100)} mehr als vor einer Woche.`;
+
+document.getElementById("scenA").textContent =
+  `Dann zählt nur der Kauf vor dem Snapshot. In den drei Vorjahren lag der Preis vom heutigen Kalendertag bis zum Gipfel vor dem Snapshot ${pct(Math.min(...runUps))} bis ${pct(Math.max(...runUps))} höher (in Euro). Warten bis kurz vor Schluss war also nie billiger, nur riskanter: Von Letter sind gerade ${cols[0].listed} Stück gelistet, von Reflection ${cols[1].listed}. Kaufe die knappen, teuren Teile zuerst.`;
+
+document.getElementById("scenB").textContent =
+  `Nach dem Snapshot fiel der Medallion-Floor in jedem Jahr deutlich: ${pct(Math.max(...drops))} bis ${pct(Math.min(...drops))} vom Gipfel, mit dem Tief jeweils im Dezember oder Januar. Gegenüber dem heutigen Kalendertag waren das ${pct(Math.max(...vsToday))} bis ${pct(Math.min(...vsToday))}. Danach stiegen die Preise über das Jahr meist wieder an.`;
+
+/* ---------- season table ---------- */
+document.getElementById("seasonTable").innerHTML = `
+  <thead><tr><th>Saison</th><th class="r">Heutiger Kalendertag</th><th class="r">Gipfel vor Snapshot</th><th class="r">Tief Dez–Jan</th><th class="r">Gipfel → Tief</th><th class="r">31. Jan</th></tr></thead>
+  <tbody>${past.map((s, i) => {
+    const st = s.stats;
+    return `<tr><td><span class="sw" style="background:var(${SERIES[i % 3]})"></span>${s.label}</td>
+      <td class="r num">${eur(st.base)}</td>
+      <td class="r num">${eur(st.peak)} <span class="muted">${fmtDay(st.peakDate)}</span></td>
+      <td class="r num">${eur(st.trough)} <span class="muted">${fmtDay(st.troughDate)}</span></td>
+      <td class="r num down">${pct((st.trough / st.peak - 1) * 100)}</td>
+      <td class="r num">${eur(st.jan31)}</td></tr>`;
+  }).join("")}
+  ${cur ? `<tr><td><span class="sw" style="background:var(--ink)"></span>${cur.label} (jetzt)</td><td class="r num">${eur(cur.points[cur.points.length - 1][2])}</td><td class="r muted">offen</td><td class="r muted">offen</td><td class="r muted">–</td><td class="r muted">–</td></tr>` : ""}
+  </tbody>`;
+
+/* ---------- SOL notes ---------- */
+const ss = DATA.sol.eurSeries;
+const sMin = ss.reduce((a, b) => b[1] < a[1] ? b : a), sMax = ss.reduce((a, b) => b[1] > a[1] ? b : a);
+function corr() {
+  const solByDay = new Map(DATA.sol.usdSeries.map(p => [new Date(p[0]).toISOString().slice(0, 10), p[1]]));
+  const rows = hist.filter(r => r.eur && solByDay.has(r.d));
+  const wk = rows.filter((_, i) => i % 7 === 0);
+  const a = [], b = [];
+  for (let i = 1; i < wk.length; i++) {
+    a.push(Math.log((wk[i].sol * solByDay.get(wk[i].d)) / (wk[i - 1].sol * solByDay.get(wk[i - 1].d))));
+    b.push(Math.log(solByDay.get(wk[i].d) / solByDay.get(wk[i - 1].d)));
+  }
+  const m = x => x.reduce((p, q) => p + q, 0) / x.length, ma = m(a), mb = m(b);
+  let n = 0, da = 0, db = 0;
+  a.forEach((x, i) => { n += (x - ma) * (b[i] - mb); da += (x - ma) ** 2; db += (b[i] - mb) ** 2; });
+  return n / Math.sqrt(da * db);
+}
+const c = corr();
+document.getElementById("solNotes").innerHTML = `
+  <li>1 SOL = <b>${eur(rate, 2)}</b> ($${de(DATA.sol.usd, 2)}). 30 Tage ${pct(sol30)}, 1 Jahr ${pct(sol365)}. Hoch ${eur(sMax[1])} (${fmtDate(new Date(sMax[0]).toISOString().slice(0, 10))}), Tief ${eur(sMin[1])} (${fmtDate(new Date(sMin[0]).toISOString().slice(0, 10))}).</li>
+  <li>Medallion und SOL laufen nur lose zusammen (Wochen-Korrelation ${de(c, 2)}). Verkäufer denken eher in Euro und Dollar: Fällt SOL, steigt meist der Floor in SOL. Für dich zählt der Euro-Preis zum Kaufzeitpunkt.</li>
+  <li>Wer SOL lange vor dem Kauf hält, trägt zusätzlich das SOL-Kursrisiko. Tauschst du Euro erst unmittelbar vor dem Kauf, fällt dieses Risiko weg.</li>
+  <li class="muted">Nachrichtenlage 27.10.2026: Oktober −14 % (schwächste der großen vier Coins), 100 $ als Unterstützung zweimal gehalten, Alpenglow-Upgrade seit 21.10. live, leichte Abflüsse aus US-Solana-ETFs.</li>`;
+document.getElementById("foot").textContent = `Daten erzeugt am ${gen.toLocaleString("de-DE")} mit tml_dashboard.py.`;
+
+/* ---------- charts ---------- */
+const charts = [];
+const bandsPlugin = {
+  id: "bands",
+  beforeDatasetsDraw(chart, _a, o) {
+    const { ctx, chartArea: ca, scales: { x } } = chart;
+    ctx.save();
+    (o.bands || []).forEach(b => {
+      const x0 = Math.max(x.getPixelForValue(b.from), ca.left), x1 = Math.min(x.getPixelForValue(b.to), ca.right);
+      if (x1 <= x0) return;
+      ctx.fillStyle = css("--band"); ctx.fillRect(x0, ca.top, x1 - x0, ca.bottom - ca.top);
+      if (b.label) { ctx.fillStyle = css("--muted"); ctx.font = "11px " + css("--f-data"); ctx.fillText(b.label, x0 + 6, ca.top + 14); }
+    });
+    (o.lines || []).forEach(l => {
+      const px = x.getPixelForValue(l.at);
+      if (px < ca.left || px > ca.right) return;
+      ctx.strokeStyle = css("--muted"); ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(px, ca.top); ctx.lineTo(px, ca.bottom); ctx.stroke(); ctx.setLineDash([]);
+      if (l.label) { ctx.fillStyle = css("--ink-2"); ctx.font = "11px " + css("--f-data"); ctx.fillText(l.label, px + 5, ca.top + 30); }
+    });
+    ctx.restore();
+  }
+};
+const crosshair = {
+  id: "crosshair",
+  afterDatasetsDraw(chart) {
+    const a = chart.tooltip && chart.tooltip.getActiveElements();
+    if (!a || !a.length) return;
+    const { ctx, chartArea: ca } = chart, x = a[0].element.x;
+    ctx.save(); ctx.strokeStyle = css("--axis"); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, ca.top); ctx.lineTo(x, ca.bottom); ctx.stroke(); ctx.restore();
+  }
+};
+const endLabels = {
+  id: "endLabels",
+  afterDatasetsDraw(chart, _a, o) {
+    if (!o.on) return;
+    const { ctx } = chart;
+    ctx.save(); ctx.font = "500 11px " + css("--f-data"); ctx.fillStyle = css("--ink-2");
+    chart.data.datasets.forEach((ds, i) => {
+      const meta = chart.getDatasetMeta(i); const p = meta.data[meta.data.length - 1];
+      if (p && ds.endLabel) ctx.fillText(ds.endLabel, Math.min(p.x + 6, chart.chartArea.right - 44), p.y + 4);
+    });
+    ctx.restore();
+  }
+};
+Chart.register(bandsPlugin, crosshair, endLabels);
+
+function base() {
+  return {
+    responsive: true, maintainAspectRatio: false, animation: false,
+    interaction: { mode: "nearest", axis: "x", intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: css("--surface"), titleColor: css("--ink"), bodyColor: css("--ink-2"),
+        borderColor: css("--line"), borderWidth: 1, padding: 10, boxPadding: 4,
+        titleFont: { family: css("--f-data"), size: 12 }, bodyFont: { family: css("--f-data"), size: 12 }
+      }
+    },
+    scales: {
+      x: { type: "linear", grid: { display: false }, border: { color: css("--axis") }, ticks: { color: css("--muted"), font: { family: css("--f-data"), size: 11 }, maxRotation: 0 } },
+      y: { grid: { color: css("--line") }, border: { display: false }, ticks: { color: css("--muted"), font: { family: css("--f-data"), size: 11 } } }
+    }
+  };
+}
+const monthTicks = (min, max, step) => {
+  const out = []; const d = new Date(min); d.setUTCDate(1); d.setUTCHours(12);
+  while (d.getTime() <= max) { if (d.getTime() >= min && d.getUTCMonth() % step === 0) out.push({ value: d.getTime() }); d.setUTCMonth(d.getUTCMonth() + 1); }
+  return out;
+};
+
+let histCur = "eur", histRange = "all";
+function seasonChart() {
+  const ds = DATA.seasons.map(s => {
+    const i = past.indexOf(s);
+    const color = s.current ? css("--ink") : css(SERIES[i % 3]);
+    const last = s.points[s.points.length - 1];
+    return {
+      label: s.label, data: s.points.map(p => ({ x: p[0], y: p[1], e: p[2] })),
+      borderColor: color, backgroundColor: color, borderWidth: s.current ? 3 : 2, tension: 0.25,
+      pointRadius: ctx => s.current && ctx.dataIndex === s.points.length - 1 ? 5 : 0, pointHoverRadius: 4,
+      endLabel: s.current ? "heute" : s.label, order: s.current ? 0 : 1
+    };
+  });
+  document.getElementById("seasonLegend").innerHTML = DATA.seasons.map((s) => {
+    const i = past.indexOf(s);
+    return `<span><i style="background:var(${s.current ? "--ink" : SERIES[i % 3]})"></i>${s.label}${s.current ? " (jetzt)" : ""}</span>`;
+  }).join("");
+  const o = base();
+  const labels = { 0: "1. Okt", 31: "1. Nov", 61: "1. Dez", 92: "1. Jan", 122: "31. Jan" };
+  o.scales.x.min = 0; o.scales.x.max = 128;
+  o.scales.x.afterBuildTicks = ax => { ax.ticks = Object.keys(labels).map(v => ({ value: +v })); };
+  o.scales.x.ticks.callback = v => labels[v] || "";
+  o.scales.y.ticks.callback = v => de(v);
+  o.plugins.bands = { bands: [{ from: 31, to: 60, label: "Registrierung Nov 2025" }], lines: [{ at: 61, label: "Snapshot 1.12.2025" }, { at: cur ? cur.points[cur.points.length - 1][0] : 26, label: "" }] };
+  o.plugins.endLabels = { on: true };
+  o.plugins.tooltip.callbacks = {
+    title: items => { const d = new Date(Date.UTC(2001, 9, 1 + items[0].parsed.x)); return d.toLocaleDateString("de-DE", { day: "numeric", month: "long" }); },
+    label: it => ` ${it.dataset.label}: Index ${de(it.parsed.y)} · ${eur(it.raw.e)}`
+  };
+  return new Chart(document.getElementById("seasonChart"), { type: "line", data: { datasets: ds }, options: o });
+}
+
+function histChart() {
+  const key = histCur;
+  const start = histRange === "1y" ? Date.parse(DATA.today) - 365 * 864e5 : hist.find(r => r[key] != null).t;
+  const rows = hist.filter(r => r.t >= start);
+  const o = base();
+  const end = rows[rows.length - 1].t;
+  o.scales.x.min = start; o.scales.x.max = end;
+  o.scales.x.afterBuildTicks = ax => { ax.ticks = monthTicks(start, end, histRange === "1y" ? 2 : 6); };
+  o.scales.x.ticks.callback = v => new Date(v).toLocaleDateString("de-DE", { month: "short", year: "2-digit" });
+  o.scales.y.ticks.callback = v => key === "eur" ? de(v) + " €" : de(v) + " SOL";
+  o.scales.y.beginAtZero = true;
+  const years = []; for (let y = new Date(start).getUTCFullYear(); y <= new Date(end).getUTCFullYear(); y++) years.push(y);
+  o.plugins.bands = { bands: years.map(y => ({ from: Date.UTC(y, 10, 1), to: Date.UTC(y, 11, 15) })), lines: [] };
+  o.plugins.tooltip.callbacks = {
+    title: it => fmtDate(new Date(it[0].parsed.x).toISOString().slice(0, 10)),
+    label: it => key === "eur" ? ` Medallion: ${eur(it.parsed.y)}` : ` Medallion: ${de(it.parsed.y, 1)} SOL`
+  };
+  const color = css("--gold");
+  return new Chart(document.getElementById("histChart"), {
+    type: "line",
+    data: { datasets: [{ label: "Medallion", data: rows.filter(r => r[key] != null).map(r => ({ x: r.t, y: r[key] })), borderColor: color, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, pointBackgroundColor: color, tension: 0.15, fill: { target: "origin" }, backgroundColor: css("--gold-wash") }] },
+    options: o
+  });
+}
+
+function colPanels() {
+  const el = document.getElementById("cols");
+  el.innerHTML = cols.map((c, i) => {
+    const last14 = c.sales.filter(s => s[0] > Date.now() - 14 * 864e5).map(s => s[1]).sort((a, b) => a - b);
+    const med = last14.length ? last14[Math.floor(last14.length / 2)] : null;
+    const two = c.ladder.slice(0, DATA.wanted).reduce((a, b) => a + b, 0);
+    return `<div class="col">
+      <div class="top"><h3><span class="sw" style="background:var(${SERIES[i]})"></span>${c.name}</h3></div>
+      <div class="top"><span class="floor num">${de(c.floor, 2)} SOL</span><span class="muted num">${eur(c.floor * rate)}</span></div>
+      <div class="ladder" aria-label="Günstigste Listings">${c.ladder.slice(0, 8).map((p, j) => `<span class="${j < DATA.wanted ? "mine" : ""}">${de(p, 2)}</span>`).join("")}</div>
+      <div class="box"><canvas id="col${i}" aria-label="Verkäufe ${c.name}"></canvas></div>
+      <dl class="facts">
+        <dt>${DATA.wanted} Stück kaufen</dt><dd class="num">${de(two, 2)} SOL · ${eur(two * rate)}</dd>
+        <dt>Gelistet</dt><dd class="num">${c.listed}</dd>
+        <dt>Verkäufe ~90 Tage</dt><dd class="num">${c.sales.length}</dd>
+        <dt>Median-Verkauf 14 Tage</dt><dd class="num">${med ? de(med, 2) + " SOL" : "–"}</dd>
+        <dt>Volumen 7 Tage</dt><dd class="num">${de(c.volume7d, 0)} SOL</dd>
+      </dl>
+      <a href="${c.url}" target="_blank" rel="noopener">Auf Magic Eden ansehen</a>
+    </div>`;
+  }).join("");
+  cols.forEach((c, i) => {
+    const color = css(SERIES[i]);
+    const o = base();
+    const xs = c.sales.map(s => s[0]); const x0 = Math.min(...xs), x1 = Date.now();
+    o.scales.x.min = x0; o.scales.x.max = x1;
+    o.scales.x.afterBuildTicks = ax => { ax.ticks = monthTicks(x0, x1, 1); };
+    o.scales.x.ticks.callback = v => new Date(v).toLocaleDateString("de-DE", { month: "short" });
+    o.scales.y.ticks.callback = v => de(v, v < 10 ? 1 : 0);
+    o.interaction = { mode: "nearest", intersect: false };
+    o.plugins.tooltip.callbacks = {
+      title: it => new Date(it[0].parsed.x).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" }),
+      label: it => it.datasetIndex === 1 ? ` Floor jetzt: ${de(it.parsed.y, 2)} SOL` : ` Verkauf: ${de(it.parsed.y, 2)} SOL`
+    };
+    charts.push(new Chart(document.getElementById("col" + i), {
+      type: "scatter",
+      data: { datasets: [
+        { data: c.sales.map(s => ({ x: s[0], y: s[1] })), backgroundColor: color, borderColor: css("--surface"), borderWidth: 1, pointRadius: 3.5, pointHoverRadius: 5 },
+        { type: "line", data: [{ x: x0, y: c.floor }, { x: x1, y: c.floor }], borderColor: css("--ink-2"), borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 0 }
+      ] },
+      options: o
+    }));
+  });
+}
+
+function solChart() {
+  const o = base();
+  const s = DATA.sol.eurSeries; const x0 = s[0][0], x1 = s[s.length - 1][0];
+  o.scales.x.min = x0; o.scales.x.max = x1;
+  o.scales.x.afterBuildTicks = ax => { ax.ticks = monthTicks(x0, x1, 2); };
+  o.scales.x.ticks.callback = v => new Date(v).toLocaleDateString("de-DE", { month: "short", year: "2-digit" });
+  o.scales.y.ticks.callback = v => de(v) + " €";
+  o.plugins.tooltip.callbacks = { title: it => new Date(it[0].parsed.x).toLocaleDateString("de-DE", { dateStyle: "medium" }), label: it => ` SOL: ${eur(it.parsed.y, 2)}` };
+  const color = css("--s1");
+  return new Chart(document.getElementById("solChart"), {
+    type: "line",
+    data: { datasets: [{ data: s.map(p => ({ x: p[0], y: p[1] })), borderColor: color, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, pointBackgroundColor: color, tension: 0.15 }] },
+    options: o
+  });
+}
+
+let hc;
+function renderAll() {
+  charts.splice(0).forEach(ch => ch.destroy());
+  if (hc) hc.destroy();
+  charts.push(seasonChart(), solChart());
+  hc = histChart();
+  colPanels();
+}
+function setHist() {
+  document.getElementById("curEur").setAttribute("aria-pressed", histCur === "eur");
+  document.getElementById("curSol").setAttribute("aria-pressed", histCur === "sol");
+  document.getElementById("rng1").setAttribute("aria-pressed", histRange === "1y");
+  document.getElementById("rngAll").setAttribute("aria-pressed", histRange === "all");
+  if (hc) hc.destroy(); hc = histChart();
+}
+document.getElementById("curEur").onclick = () => { histCur = "eur"; setHist(); };
+document.getElementById("curSol").onclick = () => { histCur = "sol"; setHist(); };
+document.getElementById("rng1").onclick = () => { histRange = "1y"; setHist(); };
+document.getElementById("rngAll").onclick = () => { histRange = "all"; setHist(); };
+
+renderAll();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(renderAll);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderAll);
+new MutationObserver(renderAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+</script>

@@ -1,0 +1,78 @@
+name: Medaillon-Wächter
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "Testnachricht und Tageszusammenfassung sofort senden"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Zustand laden
+        uses: actions/cache/restore@v6
+        with:
+          path: state.json
+          key: state-${{ github.run_id }}
+          restore-keys: state-
+
+      - name: Preise holen, Alarme und Tageszusammenfassung
+        id: watch
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          ALERT_PCT: ${{ vars.ALERT_PCT }}
+          DAILY_HOUR: ${{ vars.DAILY_HOUR }}
+          EXPECTED_SNAPSHOT: ${{ vars.EXPECTED_SNAPSHOT }}
+          MEDALLIONS_WANTED: ${{ vars.MEDALLIONS_WANTED }}
+          FORCE_TEST: ${{ inputs.test }}
+          PAGES_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+        run: python3 watch.py
+
+      - name: Zustand speichern
+        if: always() && hashFiles('state.json') != ''
+        uses: actions/cache/save@v6
+        with:
+          path: state.json
+          key: state-${{ github.run_id }}
+
+      - name: Tageswerte sichern
+        run: |
+          if [ -n "$(git status --porcelain data/)" ]; then
+            git config user.name "medaillon-waechter"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/
+            git commit -m "Tageswerte $(date -u +%F)"
+            git push
+          fi
+
+      - if: steps.watch.outputs.ok == 'true'
+        uses: actions/configure-pages@v6
+
+      - if: steps.watch.outputs.ok == 'true'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      - if: steps.watch.outputs.ok == 'true'
+        id: deploy
+        uses: actions/deploy-pages@v5
