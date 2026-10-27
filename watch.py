@@ -15,6 +15,7 @@ import csv
 import datetime as dt
 import json
 import os
+import shutil
 import sys
 import time
 import urllib.request
@@ -142,7 +143,7 @@ def main():
         set_output(False)
         return
 
-    os.makedirs(SITE, exist_ok=True)
+    shutil.copytree(os.path.join(HERE, "assets"), os.path.join(SITE, "assets"), dirs_exist_ok=True)
     tml.render(data, os.path.join(SITE, "index.html"), live=True)
     json.dump({"generated": data["generated"]}, open(os.path.join(SITE, "data.json"), "w"))
     tml.write_csv(data, os.path.join(SITE, "medallion_history.csv"))

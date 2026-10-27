@@ -323,10 +323,28 @@ LIVE_RELOAD = """
 """
 
 
+# Öffentliche Version: Schriften und Chart.js aus assets/, damit Besucher keine Anfragen an Dritte schicken
+LOCAL_FONTS = '<link rel="stylesheet" href="assets/fonts.css">\n<meta name="robots" content="noindex, nofollow">'
+LOCAL_CHARTJS = '<script src="assets/chart.umd.min.js"></script>'
+LEGAL = ('<span>Privates, nicht-kommerzielles Projekt. Keine Cookies, kein Tracking, keine Anfragen an Dritte. '
+         'Gehostet bei GitHub Pages; GitHub protokolliert dabei IP-Adressen, siehe '
+         '<a href="https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement" '
+         'target="_blank" rel="noopener">GitHub-Datenschutzerklärung</a>.</span>')
+
+
+def swap(html, marker, replacement):
+    start, end = f"<!--{marker}-->", f"<!--/{marker}-->"
+    a, b = html.index(start), html.index(end) + len(end)
+    return html[:a] + replacement + html[b:]
+
+
 def render(data, path, live=False):
     with open(os.path.join(HERE, "dashboard_template.html"), encoding="utf-8") as f:
         html = f.read().replace("/*__DATA__*/null", json.dumps(data, separators=(",", ":")))
     if live:
+        html = swap(html, "FONTS", LOCAL_FONTS)
+        html = swap(html, "CHARTJS", LOCAL_CHARTJS)
+        html = html.replace("<!--LEGAL-->", LEGAL)
         html = "<!doctype html>\n" + html + LIVE_RELOAD
     with open(path, "w", encoding="utf-8") as f:
         f.write(html)
