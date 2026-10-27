@@ -184,13 +184,15 @@ def main():
 
     now = dt.datetime.now(tml.BERLIN)
     today = now.date()
+    daily_due = now.hour >= DAILY_HOUR and state.get("lastDaily") != today.isoformat()
     if FORCE_TEST:
         send("Test: Medaillon-Wächter verbunden ✓",
              f"Alarm ab {de(ALERT_PCT)} % unter dem 7-Tage-Median, Tageszusammenfassung um {DAILY_HOUR}:00 Uhr.",
              tags=["white_check_mark"])
-        daily_summary(data, today)
+        if not daily_due:
+            daily_summary(data, today)
     check_alerts(data, state, today)
-    if now.hour >= DAILY_HOUR and state.get("lastDaily") != today.isoformat():
+    if daily_due:
         append_daily(daily_summary(data, today))
         state["lastDaily"] = today.isoformat()
 
